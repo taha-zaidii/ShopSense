@@ -247,7 +247,8 @@ BATCH_SIZE = 32
 
 ## 👤 Author
 
-**Taha Zaidi**  
+**Taha Zaidi (23K-0577)**  
+**Shahmeer Irfan (23K-0832)**  
 FAST-NUCES | Fall 2025  
 Recommender Systems - Final Project
 
