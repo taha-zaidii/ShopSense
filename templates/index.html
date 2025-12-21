@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Recommendation System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="particles"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">🎯 Product Recommender</h1>
+                <p class="subtitle">Neural Matrix Factorization System</p>
+            </div>
+            <div class="status-badge" id="statusBadge">
+                <span class="status-dot"></span>
+                <span id="statusText">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-content">
+                    <div class="stat-label">Users</div>
+                    <div class="stat-value" id="numUsers">-</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-content">
+                    <div class="stat-label">Products</div>
+                    <div class="stat-value" id="numProducts">-</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <div class="stat-label">Dataset Size</div>
+                    <div class="stat-value" id="datasetSize">-</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-content">
+                    <div class="stat-label">MAE Score</div>
+                    <div class="stat-value" id="maeScore">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="main-grid">
+            <!-- Training Panel -->
+            <div class="panel training-panel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">🚀</span>
+                    Model Training
+                </h2>
+                <div class="panel-content">
+                    <div class="form-group">
+                        <label for="sampleSize">Sample Size</label>
+                        <input type="number" id="sampleSize" value="10000" min="1000" max="50000" step="1000">
+                        <small>Number of records to train on (1K - 50K)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="epochs">Epochs</label>
+                        <input type="number" id="epochs" value="5" min="1" max="20">
+                        <small>Training iterations (1 - 20)</small>
+                    </div>
+                    <button class="btn btn-primary" id="trainBtn" onclick="trainModel()">
+                        <span class="btn-icon">⚡</span>
+                        Start Training
+                    </button>
+
+                    <div class="training-progress" id="trainingProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <p class="progress-text" id="progressText">Initializing...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommendations Panel -->
+            <div class="panel recommendations-panel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">✨</span>
+                    Get Recommendations
+                </h2>
+                <div class="panel-content">
+                    <div class="form-group">
+                        <label for="userId">User ID</label>
+                        <div class="input-group">
+                            <input type="number" id="userId" placeholder="Enter user ID">
+                            <button class="btn btn-secondary" onclick="getRandomUser()">
+                                🎲 Random
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="topN">Number of Recommendations</label>
+                        <input type="number" id="topN" value="10" min="1" max="20">
+                    </div>
+                    <button class="btn btn-primary" id="recommendBtn" onclick="getRecommendations()">
+                        <span class="btn-icon">🎁</span>
+                        Get Recommendations
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recommendations Results -->
+        <div class="panel results-panel" id="resultsPanel" style="display: none;">
+            <h2 class="panel-title">
+                <span class="panel-icon">🏆</span>
+                Top Recommendations for User <span id="resultUserId"></span>
+            </h2>
+            <div class="panel-content">
+                <div class="recommendations-grid" id="recommendationsGrid">
+                    <!-- Recommendations will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Performance -->
+        <div class="panel metrics-panel" id="metricsPanel" style="display: none;">
+            <h2 class="panel-title">
+                <span class="panel-icon">📈</span>
+                Model Performance Metrics
+            </h2>
+            <div class="panel-content">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">MAE</div>
+                        <div class="metric-value" id="metricMAE">-</div>
+                        <div class="metric-desc">Mean Absolute Error</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">MSE</div>
+                        <div class="metric-value" id="metricMSE">-</div>
+                        <div class="metric-desc">Mean Squared Error</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">RMSE</div>
+                        <div class="metric-value" id="metricRMSE">-</div>
+                        <div class="metric-desc">Root Mean Squared Error</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Verification Panel -->
+        <div class="panel verification-panel" id="verificationPanel">
+            <h2 class="panel-title">
+                <span class="panel-icon">🔍</span>
+                Verify Recommendations
+            </h2>
+            <div class="panel-content">
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    Check if recommendations match users' actual preferences from the dataset.
+                </p>
+
+                <div class="form-group">
+                    <label for="sampleUsersVerify">Sample Users</label>
+                    <input type="number" id="sampleUsersVerify" value="30" min="10" max="100">
+                    <small>Number of users to verify (10 - 100)</small>
+                </div>
+
+                <button class="btn btn-primary" id="verifyBtn" onclick="runVerification()">
+                    <span class="btn-icon">✓</span>
+                    Run Verification
+                </button>
+
+                <button class="btn btn-secondary" style="margin-left: 0.5rem;" onclick="compareRandomUser()">
+                    <span class="btn-icon">🔎</span>
+                    Compare User
+                </button>
+
+                <!-- Verification Results -->
+                <div id="verificationResults" style="display: none; margin-top: 1.5rem;">
+                    <h3 style="color: var(--text-primary); margin-bottom: 1rem;">📊 Ranking Metrics</h3>
+                    <div class="metrics-grid" id="rankingMetricsGrid">
+                        <!-- Metrics will be inserted here -->
+                    </div>
+
+                    <div id="metricInterpretation"
+                        style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 0.75rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">📖 Interpretation</h4>
+                        <ul style="color: var(--text-secondary); font-size: 0.9rem; margin: 0; padding-left: 1.5rem;">
+                            <li><strong>Precision@K</strong>: % of recommended items that are actually relevant</li>
+                            <li><strong>Recall@K</strong>: % of relevant items that appear in recommendations</li>
+                            <li><strong>Hit Rate@K</strong>: Does at least 1 relevant item appear in top K?</li>
+                            <li><strong>NDCG@K</strong>: Are relevant items ranked higher? (position-aware)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- User Comparison Results -->
+                <div id="userCompareResults" style="display: none; margin-top: 1.5rem;">
+                    <h3 style="color: var(--text-primary); margin-bottom: 1rem;">👤 User Comparison</h3>
+                    <div id="userCompareContent">
+                        <!-- Comparison will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>

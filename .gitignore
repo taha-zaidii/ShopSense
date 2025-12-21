@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Model files (regenerated on training)
+models/*.keras
+models/*.pkl
+models/*.h5
+
+# Data files (too large for git)
+*.csv
+
+# Output files (regenerated)
+recommendations_output.txt
+verification_report.txt
+results/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Environment variables
+.env
