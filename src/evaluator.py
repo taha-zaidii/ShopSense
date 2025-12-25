@@ -39,14 +39,32 @@ class ModelEvaluator:
         Returns:
             dict: Dictionary containing various metrics
         """
-        mae = mean_absolute_error(y_true, y_pred)
-        mse = mean_squared_error(y_true, y_pred)
+        # Flatten predictions if needed
+        y_pred_flat = np.array(y_pred).flatten()
+        y_true_flat = np.array(y_true).flatten()
+        
+        # Error metrics
+        mae = mean_absolute_error(y_true_flat, y_pred_flat)
+        mse = mean_squared_error(y_true_flat, y_pred_flat)
         rmse = np.sqrt(mse)
+        
+        # Accuracy metrics
+        # Round predictions to nearest integer for accuracy calculation
+        y_pred_rounded = np.clip(np.round(y_pred_flat), 1, 5)
+        y_true_rounded = np.round(y_true_flat)
+        
+        # Exact accuracy: predicted rating (rounded) matches actual
+        exact_accuracy = np.mean(y_pred_rounded == y_true_rounded) * 100
+        
+        # Within-1 accuracy: prediction is within 1 star of actual
+        within_1_accuracy = np.mean(np.abs(y_pred_flat - y_true_flat) <= 1.0) * 100
         
         metrics = {
             'MAE': mae,
             'MSE': mse,
-            'RMSE': rmse
+            'RMSE': rmse,
+            'Accuracy': exact_accuracy,
+            'Within-1 Accuracy': within_1_accuracy
         }
         
         return metrics

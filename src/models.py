@@ -120,14 +120,14 @@ class MatrixFactorizationModel:
 class NeuMFModel:
     """Neural Matrix Factorization (NeuMF) recommendation model."""
     
-    def __init__(self, num_users, num_products, latent_dim=10):
+    def __init__(self, num_users, num_products, latent_dim=32):
         """
         Initialize NeuMF model.
         
         Args:
             num_users (int): Number of unique users
             num_products (int): Number of unique products
-            latent_dim (int): Dimension of latent factors
+            latent_dim (int): Dimension of latent factors (default: 32)
         """
         self.num_users = num_users
         self.num_products = num_products
@@ -136,15 +136,30 @@ class NeuMFModel:
         self.history = None
         
     def build_model(self):
-        """Build the NeuMF model architecture combining MLP and MF."""
+        """Build the NeuMF model architecture combining MLP and MF with bias terms."""
         print("Building NeuMF model...")
         
         # Input layers with explicit shape
         product_input = Input(shape=(1,), dtype='int32', name='product-input')
         user_input = Input(shape=(1,), dtype='int32', name='user-input')
         
+        # ===== Bias Terms (captures user/product tendencies) =====
+        user_bias = Embedding(
+            self.num_users + 1, 1,
+            embeddings_regularizer=l2(1e-6),
+            name='user-bias'
+        )(user_input)
+        user_bias_vec = Flatten(name='flatten-user-bias')(user_bias)
+        
+        product_bias = Embedding(
+            self.num_products + 1, 1,
+            embeddings_regularizer=l2(1e-6),
+            name='product-bias'
+        )(product_input)
+        product_bias_vec = Flatten(name='flatten-product-bias')(product_bias)
+        
         # ===== MLP Path =====
-        # MLP Embeddings with regularization
+        # MLP Embeddings with regularization (larger for better representation)
         product_embedding_mlp = Embedding(
             self.num_products + 1, 
             self.latent_dim * 2,  # Larger embeddings for MLP
@@ -161,16 +176,17 @@ class NeuMFModel:
         )(user_input)
         user_vec_mlp = Flatten(name='flatten-user-mlp')(user_embedding_mlp)
         
-        # MLP layers with improved architecture
+        # MLP layers with improved architecture (balanced dropout)
         concat = Concatenate(name='concat')([product_vec_mlp, user_vec_mlp])
-        concat_dropout = Dropout(0.3)(concat)
-        fc_1 = Dense(64, name='fc-1', activation='relu', kernel_regularizer=l2(1e-6))(concat_dropout)
+        concat_dropout = Dropout(0.2)(concat)
+        fc_1 = Dense(128, name='fc-1', activation='relu', kernel_regularizer=l2(1e-5))(concat_dropout)
         fc_1_bn = BatchNormalization(name='batch-norm-1')(fc_1)
-        fc_1_dropout = Dropout(0.3)(fc_1_bn)
-        fc_2 = Dense(32, name='fc-2', activation='relu', kernel_regularizer=l2(1e-6))(fc_1_dropout)
+        fc_1_dropout = Dropout(0.2)(fc_1_bn)
+        fc_2 = Dense(64, name='fc-2', activation='relu', kernel_regularizer=l2(1e-5))(fc_1_dropout)
         fc_2_bn = BatchNormalization(name='batch-norm-2')(fc_2)
-        fc_2_dropout = Dropout(0.2)(fc_2_bn)
-        pred_mlp = Dense(16, name='pred-mlp', activation='relu')(fc_2_dropout)
+        fc_2_dropout = Dropout(0.15)(fc_2_bn)
+        fc_3 = Dense(32, name='fc-3', activation='relu', kernel_regularizer=l2(1e-5))(fc_2_dropout)
+        pred_mlp = Dense(16, name='pred-mlp', activation='relu')(fc_3)
         
         # ===== MF Path =====
         # MF Embeddings with regularization
@@ -193,21 +209,22 @@ class NeuMFModel:
         # MF path using element-wise multiply (better than dot for combining)
         pred_mf = Multiply(name='pred-mf-multiply')([product_vec_mf, user_vec_mf])
         
-        # ===== Combine MLP and MF =====
-        combine_mlp_mf = Concatenate(name='combine-mlp-mf')([pred_mf, pred_mlp])
+        # ===== Combine MLP, MF, and Biases =====
+        combine_all = Concatenate(name='combine-all')([pred_mf, pred_mlp, user_bias_vec, product_bias_vec])
         
-        # Hidden layer before output
-        hidden = Dense(16, activation='relu', name='hidden')(combine_mlp_mf)
+        # Hidden layers before output
+        hidden_1 = Dense(32, activation='relu', name='hidden-1', kernel_regularizer=l2(1e-6))(combine_all)
+        hidden_2 = Dense(16, activation='relu', name='hidden-2')(hidden_1)
         
         # Final prediction - output between 1 and 5 (rating scale)
         # Using sigmoid * 4 + 1 to constrain output to [1, 5]
-        result_raw = Dense(1, name='result-raw', activation='sigmoid')(hidden)
+        result_raw = Dense(1, name='result-raw', activation='sigmoid')(hidden_2)
         result = Lambda(lambda x: x * 4 + 1, name='result')(result_raw)
         
-        # Compile model with lower learning rate
+        # Compile model with optimized learning rate
         self.model = Model([user_input, product_input], result)
         self.model.compile(
-            optimizer=Adam(learning_rate=0.001),  # Lower learning rate
+            optimizer=Adam(learning_rate=0.0005),  # Lower learning rate for stability
             loss='mse',  # MSE works better for rating prediction
             metrics=['mae']  # Track MAE as metric
         )
@@ -231,7 +248,7 @@ class NeuMFModel:
         # Callbacks for better training
         early_stop = EarlyStopping(
             monitor='val_loss',
-            patience=3,
+            patience=5,
             restore_best_weights=True,
             verbose=1
         )
